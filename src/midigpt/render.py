@@ -30,20 +30,31 @@ def find_soundfont() -> Path:
 
 
 def find_fluidsynth() -> str:
+    # prefer a project-bundled portable build, then fall back to PATH
+    local = sorted(Path("tools").glob("fluidsynth*/**/bin/fluidsynth.exe"))
+    if local:
+        return str(local[0])
     exe = shutil.which("fluidsynth")
     if not exe:
         raise FileNotFoundError(
-            "fluidsynth not on PATH — `winget install FluidSynth.FluidSynth`")
+            "fluidsynth not found — expected a portable build under tools/ or "
+            "fluidsynth on PATH")
     return exe
 
 
 def midi_to_wav(midi: Path, wav: Path, soundfont: Path | None = None,
                 sample_rate: int = 44100) -> None:
     sf = soundfont or find_soundfont()
-    subprocess.run(
-        [find_fluidsynth(), "-ni", str(sf), str(midi), "-F", str(wav),
-         "-r", str(sample_rate)],
-        check=True, capture_output=True)
+    # ALL options must precede the positional soundfont/midi args — fluidsynth
+    # rejects a flag that appears after them (and exits 0 anyway, so we can't
+    # rely on the return code; we check the output file exists below).
+    proc = subprocess.run(
+        [find_fluidsynth(), "-ni", "-F", str(wav), "-r", str(sample_rate),
+         str(sf), str(midi)],
+        check=True, capture_output=True, text=True)
+    if not wav.exists() or wav.stat().st_size == 0:
+        raise RuntimeError(
+            f"fluidsynth produced no audio for {midi}\n{proc.stdout}\n{proc.stderr}")
 
 
 def main() -> None:

@@ -32,8 +32,16 @@ uv run python -m midigpt.sample --ckpt checkpoints/runN/checkpoint_best.pt --out
 uv run python -m midigpt.render out.mid    # -> out.wav (needs fluidsynth + soundfont)
 ```
 
-Rendering: `winget install FluidSynth.FluidSynth`, then point the
-`MIDIGPT_SOUNDFONT` env var at a piano `.sf2` (or drop one in `data/soundfonts/`).
+Rendering: a portable FluidSynth build lives under `tools/` and the
+GeneralUser-GS soundfont under `data/soundfonts/` — both are auto-discovered by
+`render.py`, no PATH or env var needed. Both are gitignored (downloaded
+per-machine); re-fetch with the release/raw URLs if `tools/` is missing.
+`MIDIGPT_SOUNDFONT` still overrides the soundfont choice if set.
+
+fluidsynth CLI gotcha: **all options must precede** the positional
+soundfont/MIDI args, and it exits 0 even when it rejects a misplaced flag —
+`render.py` verifies the output WAV actually exists rather than trusting the
+return code.
 
 ## Conventions
 
