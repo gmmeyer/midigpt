@@ -1,0 +1,6 @@
+.DS_Store
+_*.py
+_*.json
+_*.mjs
+# model is a build artifact — regenerate via export_onnx.py or host externally
+*.onnx

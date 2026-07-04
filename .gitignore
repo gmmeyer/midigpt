@@ -12,8 +12,5 @@ tools/
 *.bin
 *.wav
 *.sf2
-# exported model build artifact (regenerate via export_onnx.py)
+# exported model build artifact — hosted on HF, regenerate via export_onnx.py
 *.onnx
-# the browser demo is its own git repo (see web/README.md); regenerate its
-# model with export_onnx.py --quantize
-web/
