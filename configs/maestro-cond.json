@@ -1,0 +1,34 @@
+{
+  "name": "maestro-cond",
+  "purpose": "Phase 5 — composer conditioning. Fine-tune the chosen base with --init-from; anchor_frac=0.4 puts the leading <COMPOSER> BOS in context for ~40% of windows so the model learns composer->style. NOTE: the model block below is IGNORED when --init-from is used (architecture is taken from the base checkpoint) — it's here only as documentation of the expected base. Short low-lr fine-tune.",
+  "tokens_dir": "data/tokens",
+  "model": {
+    "n_layer": 8,
+    "n_head": 8,
+    "n_kv_head": 8,
+    "n_embd": 512,
+    "mlp_ratio": 3.0,
+    "block_size": 2048,
+    "dropout": 0.1,
+    "rope_base": 10000.0
+  },
+  "train": {
+    "max_steps": 2500,
+    "batch_size": 48,
+    "grad_accum": 1,
+    "lr": 1e-4,
+    "min_lr": 1e-5,
+    "warmup_steps": 100,
+    "weight_decay": 0.1,
+    "grad_clip": 1.0,
+    "precision": "bf16",
+    "transpose_semitones": 3,
+    "anchor_frac": 0.4,
+    "eval_interval": 250,
+    "sample_interval": 500,
+    "checkpoint_interval": 1000,
+    "sample_tokens": 1024,
+    "sample_temperatures": [0.9, 0.95, 1.0],
+    "seed": 20260705
+  }
+}

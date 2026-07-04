@@ -93,8 +93,21 @@ def transpose_windows(x: torch.Tensor, semitones: int, gen: torch.Generator) -> 
 
 
 def get_batch(data: np.memmap, bs: int, block: int, device: str,
-              transpose: int, gen: torch.Generator) -> tuple[torch.Tensor, torch.Tensor]:
+              transpose: int, gen: torch.Generator,
+              anchors: np.ndarray | None = None,
+              anchor_frac: float = 0.0) -> tuple[torch.Tensor, torch.Tensor]:
+    """Sample bs windows of length block+1. When `anchors` (piece-start offsets)
+    is given, a fraction of the windows begin exactly at a piece boundary — so
+    the leading <COMPOSER> BOS tokens are in context and the composer signal can
+    actually reach the events. Anchors within block of the stream end fall back
+    to uniform sampling."""
     ix = np.random.randint(0, len(data) - block - 1, size=bs)
+    if anchors is not None and anchor_frac > 0:
+        n_anchor = int(round(bs * anchor_frac))
+        if n_anchor:
+            valid = anchors[anchors < len(data) - block - 1]
+            if len(valid):
+                ix[:n_anchor] = np.random.choice(valid, size=n_anchor)
     batch = np.stack([np.asarray(data[i:i + block + 1], dtype=np.int64) for i in ix])
     t = torch.from_numpy(batch).to(device, non_blocking=True)
     if transpose:
@@ -167,7 +180,11 @@ def main() -> None:
     ap.add_argument("--max-steps", type=int, default=None)
     ap.add_argument("--batch-size", type=int, default=None)
     ap.add_argument("--eval-iters", type=int, default=20)
-    ap.add_argument("--resume", type=Path, default=None)
+    ap.add_argument("--resume", type=Path, default=None,
+                    help="continue a run: restore weights+optimizer+step+RNG")
+    ap.add_argument("--init-from", type=Path, default=None,
+                    help="fine-tune: load weights only, fresh optimizer/schedule "
+                         "at step 0 (uses the base checkpoint's model architecture)")
     ap.add_argument("--device", default=None)
     ap.add_argument("--render-samples", action="store_true",
                     help="also render sample .wavs (needs fluidsynth)")
@@ -200,17 +217,23 @@ def main() -> None:
         raise SystemExit(f"stale tokens: manifest vocab {manifest['vocab_size']} "
                          f"!= current {V.VOCAB_SIZE}; re-run prepare.py")
 
+    if args.resume and args.init_from:
+        raise SystemExit("--resume and --init-from are mutually exclusive")
+
     checkpoint = None
     start_step = 0
     last_losses = None
     best_val = float("inf")
-    if args.resume:
-        checkpoint = torch.load(args.resume, map_location=device, weights_only=False)
+    # both paths must build the model with the base checkpoint's architecture
+    base = args.resume or args.init_from
+    if base:
+        checkpoint = torch.load(base, map_location=device, weights_only=False)
         model_cfg = {k: v for k, v in checkpoint["model_config"].items()
                      if k != "vocab_size"}
-        start_step = int(checkpoint.get("step", 0))
-        last_losses = checkpoint.get("losses")
-        best_val = float(checkpoint.get("best_val", best_val))
+        if args.resume:  # continue: also restore step/loss/best-val
+            start_step = int(checkpoint.get("step", 0))
+            last_losses = checkpoint.get("losses")
+            best_val = float(checkpoint.get("best_val", best_val))
 
     model_config = GPTConfig(vocab_size=V.VOCAB_SIZE, **model_cfg)
     model = MusicGPT(model_config).to(device)
@@ -219,8 +242,11 @@ def main() -> None:
         betas=(0.9, 0.95), weight_decay=float(train_cfg.get("weight_decay", 0.1)))
     if checkpoint:
         model.load_state_dict(checkpoint["model"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-        restore_rng_state(checkpoint.get("rng_state"))
+        if args.resume:  # fine-tune (init-from) starts with a fresh optimizer + RNG
+            optimizer.load_state_dict(checkpoint["optimizer"])
+            restore_rng_state(checkpoint.get("rng_state"))
+        else:
+            print(f"fine-tuning from {args.init_from} (weights only, fresh schedule)")
 
     splits = {"train": load_split(tokens_dir, "train"),
               "validation": load_split(tokens_dir, "validation")}
@@ -235,6 +261,16 @@ def main() -> None:
     transpose = int(train_cfg.get("transpose_semitones", 0))
     temps = train_cfg.get("sample_temperatures", [0.8, 0.95, 1.1])
     sample_tokens = int(train_cfg.get("sample_tokens", 1024))
+
+    # composer conditioning: anchor a fraction of windows at piece starts so the
+    # leading <COMPOSER> BOS is in context (random windows almost never hit it)
+    anchor_frac = float(train_cfg.get("anchor_frac", 0.0))
+    anchors = None
+    if anchor_frac > 0:
+        anchors = np.array([p["offset"] for p in manifest["splits"]["train"]["pieces"]],
+                           dtype=np.int64)
+        print(f"composer conditioning: anchor_frac={anchor_frac} "
+              f"over {len(anchors)} piece starts")
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     (args.out_dir / "resolved_config.json").write_text(json.dumps({
@@ -258,7 +294,8 @@ def main() -> None:
         optimizer.zero_grad(set_to_none=True)
         total = 0.0
         for _ in range(grad_accum):
-            xb, yb = get_batch(splits["train"], bs, block, device, transpose, aug_gen)
+            xb, yb = get_batch(splits["train"], bs, block, device, transpose, aug_gen,
+                               anchors=anchors, anchor_frac=anchor_frac)
             with dtype_ctx():
                 _, loss = model(xb, targets=yb)
                 loss = loss / grad_accum
