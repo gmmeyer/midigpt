@@ -12,3 +12,5 @@ tools/
 *.bin
 *.wav
 *.sf2
+# exported model build artifact (regenerate via export_onnx.py)
+*.onnx

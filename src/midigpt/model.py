@@ -94,9 +94,18 @@ class CausalSelfAttention(nn.Module):
             k = k.repeat_interleave(self.group_size, dim=1)
             v = v.repeat_interleave(self.group_size, dim=1)
 
-        y = F.scaled_dot_product_attention(
-            q, k, v, attn_mask=None,
-            dropout_p=self.dropout if self.training else 0.0, is_causal=True)
+        if torch.onnx.is_in_onnx_export():
+            # explicit attention with a dynamic causal mask — exports to plain ONNX
+            # ops (MatMul/Softmax/Where) and keeps T dynamic (SDPA's is_causal can
+            # bake in a fixed mask size). Numerically equal to the SDPA path.
+            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(self.head_dim))
+            ar = torch.arange(T, device=x.device)
+            att = att + (ar[None, :] > ar[:, None]).to(att.dtype) * (-1e9)
+            y = F.softmax(att, dim=-1) @ v
+        else:
+            y = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=None,
+                dropout_p=self.dropout if self.training else 0.0, is_causal=True)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         return self.o_proj(y)
 
