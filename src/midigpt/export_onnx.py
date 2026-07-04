@@ -81,7 +81,8 @@ def build_web_config(manifest_path: Path | None, block_size: int,
 
 
 def export(checkpoint: str, out_dir: str = "web", opset: int = 17,
-           web_context_cap: int = 512, manifest: str | None = None) -> dict:
+           web_context_cap: int = 512, manifest: str | None = None,
+           quantize: bool = False) -> dict:
     ck = torch.load(checkpoint, weights_only=False, map_location="cpu")
     model_cfg = {k: v for k, v in ck["model_config"].items() if k != "vocab_size"}
     model = MusicGPT(GPTConfig(vocab_size=V.VOCAB_SIZE, **model_cfg))
@@ -127,6 +128,18 @@ def export(checkpoint: str, out_dir: str = "web", opset: int = 17,
     print(f"exported {onnx_path} ({size_mb:.1f} MB), vocab={V.VOCAB_SIZE}, "
           f"block_size={web_cfg['block_size']}, composers={len(web_cfg['composers'])}")
     print(f"onnx-vs-torch max logit diff = {max_diff:.2e} (argmax agrees on all lengths)")
+
+    if quantize:
+        from onnxruntime.quantization import QuantType, quantize_dynamic
+        q_path = onnx_path.with_name("model.onnx")  # overwrite fp32 with int8 in place
+        tmp = onnx_path.with_name("_model_fp32.onnx")
+        onnx_path.rename(tmp)
+        quantize_dynamic(str(tmp), str(q_path), weight_type=QuantType.QInt8)
+        tmp.unlink()
+        q_mb = q_path.stat().st_size / 1e6
+        print(f"quantized int8 -> {q_path} ({q_mb:.1f} MB, {size_mb / q_mb:.1f}x smaller)")
+        size_mb = q_mb
+
     return {"onnx": str(onnx_path), "max_diff": max_diff, "size_mb": size_mb}
 
 
@@ -137,9 +150,12 @@ def _main() -> None:
     ap.add_argument("--opset", type=int, default=17)
     ap.add_argument("--web-context-cap", type=int, default=512)
     ap.add_argument("--manifest", default=None)
+    ap.add_argument("--quantize", action="store_true",
+                    help="int8-quantize the exported model (~4x smaller download)")
     args = ap.parse_args()
     export(args.checkpoint, out_dir=args.out_dir, opset=args.opset,
-           web_context_cap=args.web_context_cap, manifest=args.manifest)
+           web_context_cap=args.web_context_cap, manifest=args.manifest,
+           quantize=args.quantize)
 
 
 if __name__ == "__main__":
