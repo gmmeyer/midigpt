@@ -151,7 +151,7 @@ def _main() -> None:
     ap.add_argument("--web-context-cap", type=int, default=320)
     ap.add_argument("--manifest", default=None)
     ap.add_argument("--quantize", action="store_true",
-                    help="int8-quantize the exported model (~4x smaller download)")
+                    help="int8-quantize the exported model (~4x smaller, lower fidelity)")
     args = ap.parse_args()
     export(args.checkpoint, out_dir=args.out_dir, opset=args.opset,
            web_context_cap=args.web_context_cap, manifest=args.manifest,
