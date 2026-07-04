@@ -56,12 +56,13 @@ return code.
   `resolved_config.json`, `metrics.jsonl`, periodic sample `.mid`/`.wav`s, and
   checkpoints. For A/Bs: fix the recipe, change exactly one variable.
 - `data/` and `checkpoints/` are gitignored — code and configs only in git.
-- **Single repo** (`github.com/gmmeyer/midigpt`): training code + the `web/`
-  browser demo together. `web/model.onnx` is gitignored (too big for GitHub) and
-  hosted on **HF `gmmeyer/midigpt`**; `web/app.js` fetches it from HF when
-  deployed, from `./model.onnx` on localhost. Regenerate the model with
-  `export_onnx.py --checkpoint <ckpt>` (fp32) and re-upload to HF. The JS decoder
-  in `web/app.js` mirrors `tokenizer.py` (byte-parity checked).
+- **Single repo** (`github.com/gmmeyer/midigpt`): training code + the `docs/`
+  browser demo together (`docs/` so GitHub Pages can serve it — Pages deploys
+  from root or `/docs`). `docs/model.onnx` is gitignored (too big for GitHub)
+  and hosted on **HF `gmmeyer/midigpt`**; `docs/app.js` fetches it from HF when
+  deployed, from `./model.onnx` on localhost. Regenerate with
+  `export_onnx.py --checkpoint <ckpt> --out-dir docs` (fp32) and re-upload to HF.
+  The JS decoder in `docs/app.js` mirrors `tokenizer.py` (byte-parity checked).
 
 ## Gotchas
 
