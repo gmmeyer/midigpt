@@ -56,6 +56,11 @@ return code.
   `resolved_config.json`, `metrics.jsonl`, periodic sample `.mid`/`.wav`s, and
   checkpoints. For A/Bs: fix the recipe, change exactly one variable.
 - `data/` and `checkpoints/` are gitignored — code and configs only in git.
+- **`web/` is its own git repo** (the deployable browser demo), gitignored by
+  this parent. This repo owns the *source of truth* (`export_onnx.py`,
+  `model.py`); regenerate the demo's model with
+  `export_onnx.py --checkpoint <ckpt> --quantize`. The JS decoder in
+  `web/app.js` mirrors `tokenizer.py` and there's a byte-parity check for it.
 
 ## Gotchas
 
