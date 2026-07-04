@@ -81,7 +81,7 @@ def build_web_config(manifest_path: Path | None, block_size: int,
 
 
 def export(checkpoint: str, out_dir: str = "web", opset: int = 17,
-           web_context_cap: int = 512, manifest: str | None = None,
+           web_context_cap: int = 320, manifest: str | None = None,
            quantize: bool = False) -> dict:
     ck = torch.load(checkpoint, weights_only=False, map_location="cpu")
     model_cfg = {k: v for k, v in ck["model_config"].items() if k != "vocab_size"}
@@ -148,7 +148,7 @@ def _main() -> None:
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--out-dir", default="web")
     ap.add_argument("--opset", type=int, default=17)
-    ap.add_argument("--web-context-cap", type=int, default=512)
+    ap.add_argument("--web-context-cap", type=int, default=320)
     ap.add_argument("--manifest", default=None)
     ap.add_argument("--quantize", action="store_true",
                     help="int8-quantize the exported model (~4x smaller download)")
