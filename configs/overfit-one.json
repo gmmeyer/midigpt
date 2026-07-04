@@ -1,0 +1,33 @@
+{
+  "name": "overfit-one",
+  "purpose": "Phase 2 — memorize a single MAESTRO performance end-to-end. Proves model + data path + decode. Point --tokens-dir at a prepare.py --single output.",
+  "tokens_dir": "data/tokens-overfit",
+  "model": {
+    "n_layer": 4,
+    "n_head": 4,
+    "n_kv_head": 4,
+    "n_embd": 256,
+    "mlp_ratio": 3.0,
+    "block_size": 512,
+    "dropout": 0.0,
+    "rope_base": 10000.0
+  },
+  "train": {
+    "max_steps": 1000,
+    "batch_size": 16,
+    "grad_accum": 1,
+    "lr": 3e-3,
+    "min_lr": 3e-4,
+    "warmup_steps": 50,
+    "weight_decay": 0.1,
+    "grad_clip": 1.0,
+    "precision": "bf16",
+    "transpose_semitones": 0,
+    "eval_interval": 100,
+    "sample_interval": 250,
+    "checkpoint_interval": 500,
+    "sample_tokens": 1024,
+    "sample_temperatures": [0.7, 1.0],
+    "seed": 20260703
+  }
+}

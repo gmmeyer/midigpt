@@ -1,0 +1,33 @@
+{
+  "name": "maestro-small",
+  "purpose": "Phase 3 — the main model. ~27M params on full MAESTRO. Batch 64 x 2048 = 131k tokens/step; one epoch ~= 175 steps, so 6000 steps ~= 34 epochs. Best-val checkpointed; expect best somewhere mid-run, watch metrics.jsonl.",
+  "tokens_dir": "data/tokens",
+  "model": {
+    "n_layer": 8,
+    "n_head": 8,
+    "n_kv_head": 8,
+    "n_embd": 512,
+    "mlp_ratio": 3.0,
+    "block_size": 2048,
+    "dropout": 0.1,
+    "rope_base": 10000.0
+  },
+  "train": {
+    "max_steps": 6000,
+    "batch_size": 64,
+    "grad_accum": 1,
+    "lr": 3e-4,
+    "min_lr": 3e-5,
+    "warmup_steps": 500,
+    "weight_decay": 0.1,
+    "grad_clip": 1.0,
+    "precision": "bf16",
+    "transpose_semitones": 3,
+    "eval_interval": 250,
+    "sample_interval": 500,
+    "checkpoint_interval": 1000,
+    "sample_tokens": 1024,
+    "sample_temperatures": [0.8, 0.95, 1.1],
+    "seed": 20260703
+  }
+}
